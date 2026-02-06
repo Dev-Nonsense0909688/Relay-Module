@@ -1,8 +1,9 @@
 import socket
 import threading
+import os
 
 HOST = "0.0.0.0"
-PORT = 2222
+PORT = int(os.environ.get("PORT", 2222))
 
 backend_conn = None
 frontend_conn = None
@@ -19,23 +20,36 @@ def pipe(src, dst):
     except:
         pass
     finally:
-        src.close()
-        dst.close()
+        try:
+            src.close()
+        except:
+            pass
+        try:
+            dst.close()
+        except:
+            pass
 
 
 def handle_connection(conn, addr):
     global backend_conn, frontend_conn
 
-    role = conn.recv(16).decode().strip()
+    try:
+        role = conn.recv(16).decode().strip()
+    except:
+        conn.close()
+        return
 
     with lock:
         if role == "BACKEND":
             backend_conn = conn
-            print("[+] Backend connected")
+            print(f"[+] Backend connected from {addr}")
+
         elif role == "FRONTEND":
             frontend_conn = conn
-            print("[+] Frontend connected")
+            print(f"[+] Frontend connected from {addr}")
+
         else:
+            print(f"[!] Unknown role from {addr}")
             conn.close()
             return
 
@@ -55,16 +69,22 @@ def handle_connection(conn, addr):
             ).start()
 
 
-server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-server.bind((HOST, PORT))
-server.listen(5)
+def main():
+    server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    server.bind((HOST, PORT))
+    server.listen(5)
 
-print("[render] relay listening")
+    print(f"[render] TCP relay listening on {HOST}:{PORT}")
 
-while True:
-    conn, addr = server.accept()
-    threading.Thread(
-        target=handle_connection,
-        args=(conn, addr),
-        daemon=True
-    ).start()
+    while True:
+        conn, addr = server.accept()
+        threading.Thread(
+            target=handle_connection,
+            args=(conn, addr),
+            daemon=True
+        ).start()
+
+
+if __name__ == "__main__":
+    main()
