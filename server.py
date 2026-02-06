@@ -7,6 +7,13 @@ PORT = int(os.environ.get("PORT", 8000))
 backend = None
 frontend = None
 
+
+async def process_request(path, request_headers):
+    # Handle Render health checks (HEAD / GET without Upgrade)
+    if request_headers.get("Upgrade", "").lower() != "websocket":
+        return (200, [], b"OK")
+
+
 async def handler(ws):
     global backend, frontend
 
@@ -36,13 +43,20 @@ async def handler(ws):
 
         await asyncio.gather(
             pipe(backend, frontend),
-            pipe(frontend, backend)
+            pipe(frontend, backend),
         )
 
+
 async def main():
-    async with websockets.serve(handler, "0.0.0.0", PORT):
-        print(f"[render] WebSocket relay on {PORT}")
+    async with websockets.serve(
+        handler,
+        "0.0.0.0",
+        PORT,
+        process_request=process_request,
+    ):
+        print(f"[render] WebSocket relay listening on {PORT}")
         await asyncio.Future()
+
 
 if __name__ == "__main__":
     asyncio.run(main())
