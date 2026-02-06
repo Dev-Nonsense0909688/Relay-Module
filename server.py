@@ -9,12 +9,12 @@ frontend = None
 
 
 async def process_request(path, request_headers):
-    # Handle Render health checks (HEAD / GET without Upgrade)
+    # Handle Render health checks (HEAD / GET without websocket upgrade)
     if request_headers.get("Upgrade", "").lower() != "websocket":
-        return (200, [], b"OK")
+        return 200, [], b"OK"
 
 
-async def handler(ws):
+async def handler(ws, path):
     global backend, frontend
 
     role = await ws.recv()
@@ -55,7 +55,7 @@ async def main():
         process_request=process_request,
     ):
         print(f"[render] WebSocket relay listening on {PORT}")
-        await asyncio.Future()
+        await asyncio.Future()  # run forever
 
 
 if __name__ == "__main__":
